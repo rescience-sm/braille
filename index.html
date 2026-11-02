@@ -246,7 +246,7 @@
                         Razina 1
                     </span>
                     <h2 id="level-title" class="text-xs sm:text-lg font-extrabold text-slate-800">
-                        Lijeva vertikala (A, B, L, K)
+                        Lijevi stupac (A, B, L, K)
                     </h2>
                 </div>
                 <div id="task-pills" class="grid grid-cols-4 sm:flex sm:flex-wrap items-center gap-1 sm:gap-1.5 w-full sm:w-auto">
@@ -469,10 +469,10 @@
                 <div class="bg-sky-50 p-3 sm:p-3.5 rounded-2xl border border-sky-200">
                     <h3 class="font-bold text-sky-900 mb-1">🎯 Metodički raspored učenja:</h3>
                     <ul class="list-disc list-inside space-y-1 text-sky-800 text-xs sm:text-sm">
-                        <li><strong>Stalne boje i tonovi točkica (1–6):</strong> 1. Crvena, 2. Plava, 3. Žuta (lijeva vertikala) te 4. Zelena, 5. Narančasta, 6. Ljubičasta (desna vertikala).</li>
-                        <li><strong>1. Razina (Lijeva vertikala):</strong> Usvajanje slova <strong>A, B, L, K</strong> koja se u brajici uče prva.</li>
-                        <li><strong>2. Razina (Riječi lijeve vertikale):</strong> Slaganje riječi od naučenih slova (<strong>ALA, BAL, LAK, BABA</strong>).</li>
-                        <li><strong>3. Razina (Uvođenje desne vertikale):</strong> Proširivanje na desni stupac kroz slova <strong>C, E, I, M</strong>.</li>
+                        <li><strong>Stalne boje i tonovi točkica (1–6):</strong> 1. Crvena, 2. Plava, 3. Žuta (lijevi stupac) te 4. Zelena, 5. Narančasta, 6. Ljubičasta (desni stupac).</li>
+                        <li><strong>1. Razina (Lijevi stupac):</strong> Usvajanje slova <strong>A, B, L, K</strong> koja se u brajici uče prva.</li>
+                        <li><strong>2. Razina (Riječi lijevog stupca):</strong> Slaganje riječi od naučenih slova (<strong>ALA, BAL, LAK, BABA</strong>).</li>
+                        <li><strong>3. Razina (Uvođenje desnog stupca):</strong> Proširivanje na desni stupac kroz slova <strong>C, E, I, M</strong>.</li>
                         <li><strong>Prilagođeno pametnim telefonima 📱:</strong> Točkice možete povlačiti prstom ili ih jednostavno dodirnuti za postavljanje!</li>
                     </ul>
                 </div>
@@ -577,9 +577,9 @@
         const CURRICULUM = [
             {
                 levelNumber: 1,
-                levelName: '1. Lijeva',
-                levelNameFull: '1. Lijeva vertikala',
-                levelSubtitle: 'Slova lijeve vertikale (A, B, L, K)',
+                levelName: '1. Lijevi',
+                levelNameFull: '1. Lijevi stupac',
+                levelSubtitle: 'Slova lijevog stupca (A, B, L, K)',
                 tasks: [
                     {
                         id: 'L1_A',
@@ -597,7 +597,7 @@
                         word: 'BROD',
                         emoji: '⛵',
                         targetDots: [1, 2],
-                        speech: 'Za slovo B trebaju nam dvije točkice lijeve vertikale: crvena (1) i plava (2)!'
+                        speech: 'Za slovo B trebaju nam dvije točkice lijevog stupca: crvena (1) i plava (2)!'
                     },
                     {
                         id: 'L1_L',
@@ -606,7 +606,7 @@
                         word: 'LAV',
                         emoji: '🦁',
                         targetDots: [1, 2, 3],
-                        speech: 'Slovo L popunjava cijelu lijevu vertikalu! Stavi crvenu (1), plavu (2) i žutu (3) točkicu.'
+                        speech: 'Slovo L popunjava cijeli lijevi stupac! Stavi crvenu (1), plavu (2) i žutu (3) točkicu.'
                     },
                     {
                         id: 'L1_K',
@@ -623,7 +623,7 @@
                 levelNumber: 2,
                 levelName: '2. Riječi',
                 levelNameFull: '2. Riječi (A, B, L, K)',
-                levelSubtitle: 'Sastavljanje riječi od slova lijeve vertikale',
+                levelSubtitle: 'Sastavljanje riječi od slova lijevog stupca',
                 tasks: [
                     {
                         id: 'L2_ALA',
@@ -647,7 +647,7 @@
                         word: 'LAK',
                         emoji: '💅',
                         letters: ['L', 'A', 'K'],
-                        speech: 'Sastavimo riječ LAK od naših slova lijeve vertikale!'
+                        speech: 'Sastavimo riječ LAK od naših slova lijevog stupca!'
                     },
                     {
                         id: 'L2_BABA',
@@ -661,9 +661,9 @@
             },
             {
                 levelNumber: 3,
-                levelName: '3. Desna',
-                levelNameFull: '3. Desna vertikala',
-                levelSubtitle: 'Uvođenje desne vertikale (C, E, I, M)',
+                levelName: '3. Desni',
+                levelNameFull: '3. Desni stupac',
+                levelSubtitle: 'Uvođenje desnog stupca (C, E, I, M)',
                 tasks: [
                     {
                         id: 'L3_C',
@@ -672,7 +672,7 @@
                         word: 'CVIJET',
                         emoji: '🌻',
                         targetDots: [1, 4],
-                        speech: 'Uvodimo desnu vertikalu! Za slovo C spoji crvenu točkicu (1) lijevo i zelenu točkicu (4) desno.'
+                        speech: 'Uvodimo desni stupac! Za slovo C spoji crvenu točkicu (1) lijevo i zelenu točkicu (4) desno.'
                     },
                     {
                         id: 'L3_E',
@@ -699,7 +699,7 @@
                         word: 'MAČKA',
                         emoji: '🐱',
                         targetDots: [1, 3, 4],
-                        speech: 'Slovo M je kao slovo K uz dodatak desne vertikale: stavi crvenu (1), žutu (3) i zelenu (4) točkicu!'
+                        speech: 'Slovo M je kao slovo K uz dodatak desnog stupca: stavi crvenu (1), žutu (3) i zelenu (4) točkicu!'
                     }
                 ]
             }
@@ -1456,7 +1456,7 @@
             victoryEmoji.textContent = `💡 ${task.emoji} 🌟`;
 
             if (task.type === 'word') {
-                victoryMsg.textContent = `Žarulja svijetli! Točno si sastavio/la riječ ${task.word} od slova lijeve vertikale!`;
+                victoryMsg.textContent = `Žarulja svijetli! Točno si sastavio/la riječ ${task.word} od slova lijevog stupca!`;
             } else {
                 victoryMsg.textContent = `Žarulja svijetli! Naučio/la si Brailleovo slovo ${task.letter} (${task.word})!`;
             }
