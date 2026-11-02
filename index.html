@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0c4a6e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Dodirni i Čitaj! - Učimo Brailleovo pismo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            background: linear-gradient(135deg, #e0f2fe 0%, #fef9c3 50%, #fce7f3 100%);
+            min-height: 100vh;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            overscroll-behavior-y: contain;
+        }
+
+        /* 3D Button effects for tactile feel */
+        .btn-3d {
+            transition: all 0.15s ease;
+            box-shadow: 0 6px 0 rgba(0, 0, 0, 0.2);
+        }
+        @media (min-width: 640px) {
+            .btn-3d {
+                box-shadow: 0 8px 0 rgba(0, 0, 0, 0.2);
+            }
+        }
+        .btn-3d:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        /* 3D Tactile Braille Dot (Točkica) */
+        .braille-pin {
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+            cursor: grab;
+            touch-action: none; /* Omogućuje glatko povlačenje prstom na mobitelu bez skrolanja ekrana */
+        }
+        @media (hover: hover) {
+            .braille-pin:hover {
+                transform: translateY(-4px) scale(1.06);
+            }
+        }
+        .braille-pin:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+
+        /* Floating Touch Clone while dragging on mobile */
+        .touch-drag-ghost {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%) scale(1.18);
+            filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.4));
+            transition: none !important;
+        }
+
+        /* Braille Slot Socket */
+        .braille-socket {
+            transition: all 0.2s ease;
+            box-shadow: inset 0 5px 10px rgba(0, 0, 0, 0.45);
+        }
+
+        /* Active scanning animation on Braille dot */
+        @keyframes scan-pulse {
+            0%, 100% { transform: scale(1.12); box-shadow: 0 0 0 8px rgba(250, 204, 21, 0.6), 0 8px 15px rgba(0,0,0,0.3); }
+            50% { transform: scale(1.2); box-shadow: 0 0 0 12px rgba(253, 224, 71, 0.9), 0 12px 20px rgba(0,0,0,0.4); }
+        }
+        .scanning-dot {
+            animation: scan-pulse 0.55s infinite ease-in-out;
+            z-index: 20;
+        }
+
+        /* Glowing success card animation */
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 15px rgba(250, 204, 21, 0.8)); transform: scale(1); }
+            50% { filter: drop-shadow(0 0 30px rgba(253, 224, 71, 1)); transform: scale(1.04); }
+        }
+        .letter-glow {
+            animation: pulse-glow 1.5s infinite ease-in-out;
+        }
+
+        /* Glowing Lightbulb Animation */
+        @keyframes bulb-glow {
+            0%, 100% { filter: drop-shadow(0 0 14px rgba(250, 204, 21, 0.95)); transform: scale(1.06); }
+            50% { filter: drop-shadow(0 0 28px rgba(254, 240, 138, 1)); transform: scale(1.14); }
+        }
+        .bulb-lit {
+            animation: bulb-glow 1.2s infinite ease-in-out;
+        }
+
+        /* Shake animation for error */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px) rotate(-2deg); }
+            40%, 80% { transform: translateX(10px) rotate(2deg); }
+        }
+        .shake-error {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        /* Floating mascot animation */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+        .mascot-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Slot drop target highlight */
+        .slot-highlight {
+            border-color: #facc15 !important;
+            background-color: #334155 !important;
+            transform: scale(1.12);
+            box-shadow: 0 0 0 6px rgba(250, 204, 21, 0.45), inset 0 5px 10px rgba(0, 0, 0, 0.45) !important;
+        }
+
+        /* Kiosk Mode Fallback & Fullscreen Styling */
+        body.kiosk-active {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            z-index: 9990;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="flex flex-col justify-between p-2 sm:p-4 md:p-6 pb-4 select-none">
+
+    <!-- Floating Exit Kiosk Button (Top-Right Corner X) -->
+    <button id="kiosk-exit-x" onclick="exitKioskMode()" class="hidden fixed top-2.5 right-2.5 sm:top-5 sm:right-5 z-[9999] btn-3d bg-rose-500 hover:bg-rose-600 text-white w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-4 border-white shadow-2xl items-center justify-center text-xl sm:text-3xl font-extrabold" title="Izađi iz Kiosk načina rada (Esc)">
+        ✕
+    </button>
+
+    <!-- Top Banner: Veleučilište PAR Donation & PARSocial Project -->
+    <div class="w-full max-w-5xl mx-auto mb-1.5 sm:mb-3 bg-gradient-to-r from-sky-900 via-blue-800 to-indigo-900 text-white rounded-2xl sm:rounded-3xl px-3 py-2 sm:px-6 sm:py-3 shadow-md border-2 border-sky-300/60 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+        <div class="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
+            <!-- Veleučilište PAR Logo Container (Online logo with automatic fallback) -->
+            <a href="https://www.par.hr" target="_blank" rel="noopener noreferrer" class="bg-white px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl shadow-sm flex items-center justify-center hover:scale-105 transition-transform border border-sky-200 shrink-0" title="Posjeti Veleučilište PAR">
+                <img id="par-online-logo" 
+                     src="https://www.par.hr/wp-content/uploads/2023/11/PAR-logo.png" 
+                     alt="Veleučilište PAR Logo" 
+                     class="h-6 sm:h-10 w-auto object-contain"
+                     onerror="if(this.dataset.retry!=='1'){this.dataset.retry='1';this.src='https://logo.clearbit.com/par.hr';}else{this.style.display='none';document.getElementById('par-svg-fallback').classList.remove('hidden');}" />
+                <!-- Crisp Brand Fallback if offline or blocked -->
+                <div id="par-svg-fallback" class="hidden flex items-center gap-1.5 sm:gap-2 py-0.5">
+                    <div class="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-sky-700 text-white font-extrabold flex items-center justify-center text-xs sm:text-sm tracking-tighter shadow-inner">
+                        PAR
+                    </div>
+                    <div class="flex flex-col text-left leading-none">
+                        <span class="text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider">Veleučilište</span>
+                        <span class="text-xs sm:text-base font-black text-sky-900 tracking-tight">PAR</span>
+                    </div>
+                </div>
+            </a>
+
+            <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-1 sm:gap-2">
+                    <span class="bg-amber-400 text-slate-900 text-[10px] sm:text-xs font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm">
+                        🎁 Donacija Veleučilišta PAR
+                    </span>
+                    <span class="bg-sky-500/30 border border-sky-300/50 text-sky-100 text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full">
+                        #PARSocial
+                    </span>
+                </div>
+                <p class="hidden sm:block text-xs sm:text-sm text-sky-100 font-medium mt-1">
+                    Edukativna inicijativa za razvoj digitalnih vještina najmlađih u sklopu projekta <strong class="text-white underline decoration-amber-400">PARSocial</strong>
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+            <div class="hidden lg:flex items-center gap-2 bg-white/10 px-3.5 py-1.5 rounded-2xl border border-white/15 text-xs font-semibold text-sky-100">
+                <span>🤝</span>
+                <span>Zajedno gradimo budućnost kroz igru i znanje</span>
+            </div>
+
+            <!-- Kiosk Mode Toggle Button in Top Bar -->
+            <button id="kiosk-top-btn" onclick="enterKioskMode()" class="btn-3d bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold text-[11px] sm:text-sm px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl sm:rounded-2xl border-2 border-amber-600 flex items-center gap-1 shadow-md" title="Pokreni Kiosk način rada (Puni zaslon)">
+                <span>🖥️</span>
+                <span class="hidden xs:inline sm:inline">Kiosk</span>
+            </button>
+        </div>
+    </div>
+
+    <header class="w-full max-w-5xl mx-auto bg-white/90 backdrop-blur-md rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-lg border-4 border-sky-200 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-3">
+        <!-- Top Row on Mobile: Logo + Utility Buttons -->
+        <div class="flex items-center justify-between gap-2">
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div class="w-10 h-10 sm:w-14 sm:h-14 bg-amber-400 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-inner border-2 border-amber-500 text-2xl sm:text-3xl shrink-0">
+                    ⠿
+                </div>
+                <div class="min-w-0">
+                    <h1 class="text-lg sm:text-2xl md:text-3xl font-bold text-slate-800 tracking-wide leading-tight truncate">
+                        Dodirni i Čitaj!
+                    </h1>
+                    <p class="text-[11px] sm:text-sm text-slate-500 font-semibold leading-tight line-clamp-1">
+                        Povuci ili dodirni točkice i otkrij slova i riječi
+                    </p>
+                </div>
+            </div>
+
+            <!-- Stars Score, Audio Toggle & Parent Tip Button (Visible on right in mobile top row) -->
+            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 md:order-3">
+                <div class="bg-amber-100 border-2 border-amber-400 px-2.5 sm:px-3 h-10 sm:h-12 rounded-xl sm:rounded-2xl flex items-center gap-1 font-extrabold text-amber-900 text-xs sm:text-base shadow-sm" title="Osvojene zvjezdice">
+                    <span class="text-base sm:text-xl">⭐</span>
+                    <span id="stars-counter">0 / 12</span>
+                </div>
+                <button id="sound-toggle" onclick="toggleSound()" class="btn-3d bg-purple-500 hover:bg-purple-600 text-white w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl border-2 border-purple-700" title="Zvuk Uključen/Isključen">
+                    🔊
+                </button>
+                <button onclick="toggleParentModal()" class="btn-3d bg-sky-500 hover:bg-sky-600 text-white px-2.5 sm:px-3 h-10 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center gap-1 font-bold text-xs sm:text-sm border-2 border-sky-700" title="Kutak za roditelje i odgojitelje">
+                    <span class="text-base sm:text-lg">👩‍🏫</span> <span class="hidden sm:inline">Info</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Level Selector Pills (Full width grid on mobile, inline on desktop) -->
+        <div class="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-1 sm:gap-1.5 bg-sky-100 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl border-2 border-sky-200 md:order-2" id="level-buttons">
+            <!-- Dynamically populated by JS -->
+        </div>
+    </header>
+
+    <main class="w-full max-w-5xl mx-auto my-2 sm:my-3 flex-1 flex flex-col gap-2.5 sm:gap-4 justify-center">
+
+        <!-- Sub-level (Tasks inside Current Level) Selector Bar + Mascot -->
+        <div class="bg-white/95 rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 shadow-md border-4 border-amber-300 flex flex-col gap-2 sm:gap-3">
+            <!-- Sub-task pills for current level -->
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-amber-100 pb-2">
+                <div class="flex items-center gap-2">
+                    <span id="level-badge" class="bg-amber-400 text-slate-900 text-[11px] sm:text-sm font-extrabold px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full uppercase shadow-sm">
+                        Razina 1
+                    </span>
+                    <h2 id="level-title" class="text-xs sm:text-lg font-extrabold text-slate-800">
+                        Lijeva vertikala (A, B, L, K)
+                    </h2>
+                </div>
+                <div id="task-pills" class="grid grid-cols-4 sm:flex sm:flex-wrap items-center gap-1 sm:gap-1.5 w-full sm:w-auto">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2.5 sm:gap-4">
+                <div class="mascot-float text-2xl sm:text-5xl bg-indigo-100 p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border-2 border-indigo-300 shrink-0">
+                    🦉
+                </div>
+                <div class="flex-1">
+                    <p id="mascot-speech" class="text-xs sm:text-lg text-slate-700 font-medium leading-snug">
+                        Povuci ili dodirni crvenu točkicu (1) kako bi napisao/la slovo A!
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stage & Interactive Braille Board Area -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-stretch">
+
+            <!-- Left Column: Target Letter/Word, Lightbulb Indicator & Reference Mini-Cell -->
+            <div id="stage-container" class="lg:col-span-5 bg-slate-900 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-xl border-4 border-slate-700 flex flex-col items-center justify-between relative overflow-hidden sm:min-h-[320px] transition-colors duration-700">
+                
+                <!-- Top Bar inside Stage: Status Pill + Interactive Lightbulb (Žarulja) -->
+                <div class="z-10 w-full flex items-center justify-between gap-2">
+                    <div id="stage-status-pill" class="bg-slate-800/90 text-slate-200 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-sm font-bold border border-slate-600 flex items-center gap-1.5 sm:gap-2 truncate">
+                        <span id="status-dot" class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-400 inline-block shrink-0"></span>
+                        <span id="status-text" class="truncate">Zadatak: Složi točkice</span>
+                    </div>
+
+                    <!-- THE LIGHTBULB (Žarulja koja je ugašena, a pali se kad je rješenje dobro) -->
+                    <div id="lightbulb-container" class="bg-slate-800/90 border-2 border-slate-600 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl flex items-center gap-1.5 sm:gap-2 transition-all duration-500 shrink-0" title="Žarulja se pali kad je rješenje točno!">
+                        <svg id="lightbulb-svg" class="w-6 h-6 sm:w-9 sm:h-9 transition-all duration-500" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Rays (Hidden when unlit) -->
+                            <g id="bulb-rays" class="opacity-0 transition-opacity duration-500" stroke="#fde047" stroke-width="4" stroke-linecap="round">
+                                <line x1="32" y1="2" x2="32" y2="8"/>
+                                <line x1="10" y1="12" x2="15" y2="17"/>
+                                <line x1="54" y1="12" x2="49" y2="17"/>
+                                <line x1="4" y1="30" x2="10" y2="30"/>
+                                <line x1="60" y1="30" x2="54" y2="30"/>
+                            </g>
+                            <!-- Bulb Glass -->
+                            <path id="bulb-glass" d="M32 12C22.0589 12 14 20.0589 14 30C14 36.4 17.35 42.02 22.4 45.2C23.9 46.15 25 47.8 25 49.6V52H39V49.6C39 47.8 40.1 46.15 41.6 45.2C46.65 42.02 50 36.4 50 30C50 20.0589 41.9411 12 32 12Z" fill="#334155" stroke="#64748b" stroke-width="3.5"/>
+                            <!-- Filament inside bulb -->
+                            <path id="bulb-filament" d="M27 38L29 29L32 32L35 29L37 38" stroke="#64748b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <!-- Bulb Base -->
+                            <rect x="25" y="52" width="14" height="5" rx="2" fill="#94a3b8" stroke="#475569" stroke-width="2"/>
+                            <path d="M28 57H36L34 61H30L28 57Z" fill="#64748b"/>
+                        </svg>
+                        <span id="bulb-label" class="text-[10px] sm:text-xs font-extrabold text-slate-400 uppercase tracking-wide">
+                            Ugašena
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Word Progress Slots (Visible in Level 2 when spelling multi-letter words) -->
+                <div id="word-spelling-bar" class="hidden z-10 w-full bg-slate-800/90 border-2 border-indigo-400/60 rounded-xl sm:rounded-2xl p-1.5 sm:p-2 mt-2 items-center justify-center gap-2">
+                    <!-- Populated by JS for word-building tasks -->
+                </div>
+
+                <!-- Target Letter & Word Card + Mini Pattern Guide (Side by side even on phones to save vertical space!) -->
+                <div class="z-10 my-2.5 sm:my-3 flex flex-row items-center justify-center gap-3 sm:gap-5 w-full">
+                    
+                    <!-- Big Letter & Emoji Card -->
+                    <div id="letter-card" class="bg-slate-800 border-4 border-slate-600 rounded-2xl sm:rounded-3xl p-3 sm:p-4 w-36 h-32 sm:w-44 sm:h-44 flex flex-col items-center justify-center shadow-2xl transition-all duration-500 shrink-0">
+                        <div class="flex items-baseline gap-2 sm:gap-3">
+                            <span id="target-letter" class="text-5xl sm:text-6xl font-extrabold text-amber-400 leading-none">A</span>
+                            <span id="target-emoji" class="text-4xl sm:text-5xl leading-none">✈️</span>
+                        </div>
+                        <div id="target-word" class="mt-2 text-sm sm:text-lg font-extrabold text-white tracking-wider uppercase bg-slate-700/80 px-2.5 py-0.5 rounded-xl">
+                            AVION
+                        </div>
+                    </div>
+
+                    <!-- Mini Reference Braille Pattern (Uzorak u bojama) -->
+                    <div class="bg-slate-800/90 border-2 border-slate-600 rounded-2xl p-2.5 sm:p-3 flex flex-col items-center shrink-0">
+                        <span class="text-[10px] sm:text-xs font-bold text-sky-300 uppercase tracking-wider mb-1.5 sm:mb-2">Uzorak točkica</span>
+                        <div id="mini-guide-grid" class="grid grid-cols-2 gap-2 sm:gap-2.5 bg-slate-900 p-2 sm:p-3 rounded-xl border border-slate-700">
+                            <!-- 6 mini color-coded dots populated by JS -->
+                        </div>
+                        <span id="target-dots-label" class="text-[11px] sm:text-xs font-extrabold text-amber-300 mt-1.5 sm:mt-2">
+                            Točkica: 1
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Tactile Progress / Active Dots Counter -->
+                <div class="z-10 w-full bg-slate-800/90 rounded-xl sm:rounded-2xl p-2 sm:p-2.5 border border-slate-700 flex items-center justify-between px-3 sm:px-4">
+                    <span class="text-xs sm:text-sm font-bold text-slate-300">Postavljene točkice:</span>
+                    <span id="placed-count-badge" class="bg-sky-500/20 border border-sky-400/50 text-sky-200 text-xs sm:text-sm font-extrabold px-2.5 py-0.5 rounded-full">
+                        0 od 1
+                    </span>
+                </div>
+            </div>
+
+            <!-- Right Column: Interactive 6-Dot Braille Cell + Dot Toolbox -->
+            <div class="lg:col-span-7 flex flex-col gap-3 sm:gap-4 justify-between">
+
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 sm:gap-4 items-stretch flex-1">
+                    
+                    <!-- 1. INTERACTIVE 6-DOT BRAILLE CELL -->
+                    <div id="braille-board-panel" class="sm:col-span-7 bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-lg border-4 border-emerald-300 flex flex-col items-center justify-between">
+                        <div class="w-full flex items-center justify-between mb-1.5 sm:mb-2">
+                            <div class="flex items-center gap-1.5 sm:gap-2">
+                                <span class="text-xl sm:text-2xl">⠿</span>
+                                <h3 class="text-sm sm:text-lg font-bold text-slate-800">
+                                    Brailleova ćelija
+                                </h3>
+                            </div>
+                            <button onclick="resetLevel()" class="btn-3d bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-2.5 py-1 sm:px-3 sm:py-1 rounded-xl text-xs sm:text-sm border-2 border-rose-300 flex items-center gap-1" title="Očisti ploču">
+                                <span>🔄</span> Očisti
+                            </button>
+                        </div>
+
+                        <!-- Tactile 2x3 Braille Cell Frame (Dots 1,2,3 on Left; Dots 4,5,6 on Right) -->
+                        <div class="bg-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-4 border-slate-600 shadow-inner my-1">
+                            <div id="braille-cell-grid" class="grid grid-cols-2 gap-x-7 gap-y-3 sm:gap-x-8 sm:gap-y-4">
+                                <!-- Populated in standard Braille order:
+                                     Row 1: Dot 1 (L), Dot 4 (R)
+                                     Row 2: Dot 2 (L), Dot 5 (R)
+                                     Row 3: Dot 3 (L), Dot 6 (R) -->
+                            </div>
+                        </div>
+
+                        <p class="text-[11px] sm:text-xs text-slate-500 font-semibold text-center mt-1.5">
+                            💡 Povuci točkicu prstom u rupu ili samo dodirni rupu!
+                        </p>
+                    </div>
+
+                    <!-- 2. DOT TOOLBOX (Kutija s točkicama u bojama) -->
+                    <div class="sm:col-span-5 bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-lg border-4 border-sky-300 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center gap-1.5 sm:gap-2 mb-1">
+                                <span class="text-xl sm:text-2xl">🎨</span>
+                                <h3 class="text-sm sm:text-lg font-bold text-slate-800">
+                                    Kutija s točkicama
+                                </h3>
+                            </div>
+                            <p class="text-[11px] sm:text-xs text-slate-500 font-medium mb-2">
+                                Povuci ili dodirni točkicu (1–6) — svaka ima svoju boju i ton!
+                            </p>
+                        </div>
+
+                        <!-- Draggable Color-Coded Dots Container -->
+                        <div id="toolbox-pins" class="flex-1 min-h-[115px] sm:min-h-[150px] bg-sky-50/80 rounded-2xl p-2.5 sm:p-3 border-2 border-dashed border-sky-200 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 content-center transition-colors">
+                            <!-- Color-coded dots generated by JS -->
+                        </div>
+
+                        <!-- Fixed Color Legend for Dots 1-6 -->
+                        <div class="mt-2.5 sm:mt-3 bg-slate-50 border border-slate-200 rounded-xl p-1.5 sm:p-2 text-center">
+                            <div class="grid grid-cols-3 gap-1 text-[10px] sm:text-[11px] font-extrabold">
+                                <span class="bg-red-500 text-white rounded px-1 py-0.5">1 Crvena</span>
+                                <span class="bg-blue-500 text-white rounded px-1 py-0.5">2 Plava</span>
+                                <span class="bg-yellow-400 text-slate-900 rounded px-1 py-0.5">3 Žuta</span>
+                                <span class="bg-emerald-500 text-white rounded px-1 py-0.5">4 Zelena</span>
+                                <span class="bg-orange-500 text-white rounded px-1 py-0.5">5 Naranč.</span>
+                                <span class="bg-purple-500 text-white rounded px-1 py-0.5">6 Ljubič.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 3. BIG ACTION BUTTON (CHECK BRAILLE CELL) -->
+                <div class="flex items-center justify-center pt-0.5 sm:pt-1">
+                    <button id="run-btn" onclick="checkBrailleCell()" class="btn-3d w-full sm:w-auto min-w-[260px] sm:min-w-[280px] bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg sm:text-2xl py-3 sm:py-3.5 px-6 sm:px-8 rounded-2xl sm:rounded-3xl border-4 border-emerald-700 flex items-center justify-center gap-2.5 sm:gap-3 shadow-xl">
+                        <span>✋</span>
+                        <span>PROVJERI DODIROM!</span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Celebration Modal (When Braille Letter/Word is Mastered!) -->
+    <div id="victory-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-5 sm:p-8 text-center border-8 border-amber-400 shadow-2xl transform transition-all scale-100">
+            <div id="victory-emoji" class="text-6xl sm:text-7xl mb-3 animate-bounce">
+                💡🎉🌟
+            </div>
+            <h2 class="text-2xl sm:text-4xl font-extrabold text-slate-800 mb-2">
+                BRAVO!
+            </h2>
+            <p id="victory-message" class="text-base sm:text-lg text-slate-600 font-medium mb-5 sm:mb-6">
+                Žarulja svijetli! Točno si složio/la Brailleove točkice!
+            </p>
+            <div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 justify-center">
+                <button onclick="closeVictoryModal()" class="btn-3d bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-base sm:text-lg py-2.5 sm:py-3 px-6 rounded-2xl border-2 border-slate-400">
+                    Ostani ovdje
+                </button>
+                <button id="next-level-btn" onclick="goToNextTask()" class="btn-3d bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-lg sm:text-xl py-2.5 sm:py-3 px-8 rounded-2xl border-2 border-emerald-700 flex items-center justify-center gap-2">
+                    <span>Dalje</span> <span>➡️</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parent / Educator Info Modal -->
+    <div id="parent-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden items-center justify-center p-3 sm:p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90dvh] overflow-y-auto p-5 sm:p-8 border-4 border-sky-400 shadow-2xl">
+            <div class="flex items-center justify-between mb-3 sm:mb-4">
+                <h2 class="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <span>👩‍🏫</span> Kutak za roditelje i odgojitelje
+                </h2>
+                <button onclick="toggleParentModal()" class="text-slate-400 hover:text-slate-700 text-2xl font-bold p-1">✕</button>
+            </div>
+            <div class="space-y-3 text-slate-700 text-xs sm:text-base leading-relaxed">
+                <div class="bg-gradient-to-r from-sky-50 to-indigo-50 p-3 sm:p-3.5 rounded-2xl border-2 border-sky-200 flex items-center gap-3">
+                    <div class="text-2xl sm:text-3xl">🎓</div>
+                    <div class="text-xs sm:text-sm text-slate-700">
+                        Ova aplikacija je <strong>donacija Veleučilišta PAR</strong> u sklopu društveno odgovornog projekta <strong>PARSocial</strong>, s ciljem razvoja empatije, inkluzije i rane pismenosti kroz igru.
+                    </div>
+                </div>
+                <p>
+                    Igra je metodički prilagođena <strong>videćoj djeci</strong> za rano upoznavanje <strong>Brailleovog pisma (šestotočke)</strong> na računalima, tabletima i pametnim telefonima.
+                </p>
+                <div class="bg-sky-50 p-3 sm:p-3.5 rounded-2xl border border-sky-200">
+                    <h3 class="font-bold text-sky-900 mb-1">🎯 Metodički raspored učenja:</h3>
+                    <ul class="list-disc list-inside space-y-1 text-sky-800 text-xs sm:text-sm">
+                        <li><strong>Stalne boje i tonovi točkica (1–6):</strong> 1. Crvena, 2. Plava, 3. Žuta (lijeva vertikala) te 4. Zelena, 5. Narančasta, 6. Ljubičasta (desna vertikala).</li>
+                        <li><strong>1. Razina (Lijeva vertikala):</strong> Usvajanje slova <strong>A, B, L, K</strong> koja se u brajici uče prva.</li>
+                        <li><strong>2. Razina (Riječi lijeve vertikale):</strong> Slaganje riječi od naučenih slova (<strong>ALA, BAL, LAK, BABA</strong>).</li>
+                        <li><strong>3. Razina (Uvođenje desne vertikale):</strong> Proširivanje na desni stupac kroz slova <strong>C, E, I, M</strong>.</li>
+                        <li><strong>Prilagođeno pametnim telefonima 📱:</strong> Točkice možete povlačiti prstom ili ih jednostavno dodirnuti za postavljanje!</li>
+                    </ul>
+                </div>
+            </div>
+            <button onclick="toggleParentModal()" class="btn-3d mt-5 sm:mt-6 w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 rounded-2xl border-2 border-sky-700">
+                U redu, krenimo na igru!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Standard Braille cell visual layout order (2 columns x 3 rows):
+        // Left column: 1, 2, 3 | Right column: 4, 5, 6
+        const GRID_DISPLAY_ORDER = [1, 4, 2, 5, 3, 6];
+
+        // Musical scale frequencies for dots 1 to 6 (C5 to A5)
+        const DOT_FREQUENCIES = {
+            1: 523.25, // C5
+            2: 587.33, // D5
+            3: 659.25, // E5
+            4: 698.46, // F5
+            5: 783.99, // G5
+            6: 880.00  // A5
+        };
+
+        // Fixed invariant colors for each Braille dot 1..6 throughout the entire game
+        const DOT_COLORS = {
+            1: {
+                name: 'crvenu',
+                label: 'Crvena',
+                pinBg: 'bg-gradient-to-b from-red-400 via-red-500 to-red-600 border-red-200',
+                domeBg: 'bg-red-200/80 text-red-950',
+                shadow: '0 6px 0 #991b1b, inset 0 4px 6px rgba(255,255,255,0.6)',
+                miniActive: 'bg-red-500 border-red-200 text-white',
+                socketHint: 'border-red-400/80 text-red-400',
+                badgeBg: 'bg-red-600 text-white border-red-200'
+            },
+            2: {
+                name: 'plavu',
+                label: 'Plava',
+                pinBg: 'bg-gradient-to-b from-blue-400 via-blue-500 to-blue-600 border-blue-200',
+                domeBg: 'bg-blue-200/80 text-blue-950',
+                shadow: '0 6px 0 #1e40af, inset 0 4px 6px rgba(255,255,255,0.6)',
+                miniActive: 'bg-blue-500 border-blue-200 text-white',
+                socketHint: 'border-blue-400/80 text-blue-400',
+                badgeBg: 'bg-blue-600 text-white border-blue-200'
+            },
+            3: {
+                name: 'žutu',
+                label: 'Žuta',
+                pinBg: 'bg-gradient-to-b from-yellow-300 via-yellow-400 to-amber-400 border-yellow-100',
+                domeBg: 'bg-yellow-100/90 text-amber-950',
+                shadow: '0 6px 0 #b45309, inset 0 4px 6px rgba(255,255,255,0.7)',
+                miniActive: 'bg-yellow-400 border-yellow-100 text-slate-900',
+                socketHint: 'border-yellow-400/80 text-yellow-300',
+                badgeBg: 'bg-yellow-400 text-slate-900 border-yellow-100'
+            },
+            4: {
+                name: 'zelenu',
+                label: 'Zelena',
+                pinBg: 'bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-600 border-emerald-200',
+                domeBg: 'bg-emerald-200/80 text-emerald-950',
+                shadow: '0 6px 0 #065f46, inset 0 4px 6px rgba(255,255,255,0.6)',
+                miniActive: 'bg-emerald-500 border-emerald-200 text-white',
+                socketHint: 'border-emerald-400/80 text-emerald-400',
+                badgeBg: 'bg-emerald-600 text-white border-emerald-200'
+            },
+            5: {
+                name: 'narančastu',
+                label: 'Narančasta',
+                pinBg: 'bg-gradient-to-b from-orange-400 via-orange-500 to-orange-600 border-orange-200',
+                domeBg: 'bg-orange-200/80 text-orange-950',
+                shadow: '0 6px 0 #9a3412, inset 0 4px 6px rgba(255,255,255,0.6)',
+                miniActive: 'bg-orange-500 border-orange-200 text-white',
+                socketHint: 'border-orange-400/80 text-orange-400',
+                badgeBg: 'bg-orange-500 text-white border-orange-200'
+            },
+            6: {
+                name: 'ljubičastu',
+                label: 'Ljubičasta',
+                pinBg: 'bg-gradient-to-b from-purple-400 via-purple-500 to-purple-600 border-purple-200',
+                domeBg: 'bg-purple-200/80 text-purple-950',
+                shadow: '0 6px 0 #5b21b6, inset 0 4px 6px rgba(255,255,255,0.6)',
+                miniActive: 'bg-purple-500 border-purple-200 text-white',
+                socketHint: 'border-purple-400/80 text-purple-400',
+                badgeBg: 'bg-purple-600 text-white border-purple-200'
+            }
+        };
+
+        // Braille dictionary for letters used across levels
+        const BRAILLE_LETTERS = {
+            'A': [1],
+            'B': [1, 2],
+            'L': [1, 2, 3],
+            'K': [1, 3],
+            'C': [1, 4],
+            'E': [1, 5],
+            'I': [2, 4],
+            'M': [1, 3, 4]
+        };
+
+        const CURRICULUM = [
+            {
+                levelNumber: 1,
+                levelName: '1. Lijeva',
+                levelNameFull: '1. Lijeva vertikala',
+                levelSubtitle: 'Slova lijeve vertikale (A, B, L, K)',
+                tasks: [
+                    {
+                        id: 'L1_A',
+                        type: 'single',
+                        letter: 'A',
+                        word: 'AVION',
+                        emoji: '✈️',
+                        targetDots: [1],
+                        speech: 'Slovo A ima samo jednu točkicu! Povuci ili dodirni crvenu točkicu 1 u prvu rupu gore lijevo.'
+                    },
+                    {
+                        id: 'L1_B',
+                        type: 'single',
+                        letter: 'B',
+                        word: 'BROD',
+                        emoji: '⛵',
+                        targetDots: [1, 2],
+                        speech: 'Za slovo B trebaju nam dvije točkice lijeve vertikale: crvena (1) i plava (2)!'
+                    },
+                    {
+                        id: 'L1_L',
+                        type: 'single',
+                        letter: 'L',
+                        word: 'LAV',
+                        emoji: '🦁',
+                        targetDots: [1, 2, 3],
+                        speech: 'Slovo L popunjava cijelu lijevu vertikalu! Stavi crvenu (1), plavu (2) i žutu (3) točkicu.'
+                    },
+                    {
+                        id: 'L1_K',
+                        type: 'single',
+                        letter: 'K',
+                        word: 'KUĆA',
+                        emoji: '🏠',
+                        targetDots: [1, 3],
+                        speech: 'Slovo K ima prvu i treću točkicu u lijevom stupcu! Postavi crvenu (1) i žutu (3) točkicu.'
+                    }
+                ]
+            },
+            {
+                levelNumber: 2,
+                levelName: '2. Riječi',
+                levelNameFull: '2. Riječi (A, B, L, K)',
+                levelSubtitle: 'Sastavljanje riječi od slova lijeve vertikale',
+                tasks: [
+                    {
+                        id: 'L2_ALA',
+                        type: 'word',
+                        word: 'ALA',
+                        emoji: '🐉',
+                        letters: ['A', 'L', 'A'],
+                        speech: 'Složimo riječ ALA slovo po slovo! Prvo složi slovo A.'
+                    },
+                    {
+                        id: 'L2_BAL',
+                        type: 'word',
+                        word: 'BAL',
+                        emoji: '💃',
+                        letters: ['B', 'A', 'L'],
+                        speech: 'Idemo napisati riječ BAL! Krenimo od prvog slova u riječi.'
+                    },
+                    {
+                        id: 'L2_LAK',
+                        type: 'word',
+                        word: 'LAK',
+                        emoji: '💅',
+                        letters: ['L', 'A', 'K'],
+                        speech: 'Sastavimo riječ LAK od naših slova lijeve vertikale!'
+                    },
+                    {
+                        id: 'L2_BABA',
+                        type: 'word',
+                        word: 'BABA',
+                        emoji: '👵',
+                        letters: ['B', 'A', 'B', 'A'],
+                        speech: 'Za kraj druge razine složimo riječ BABA slovo po slovo!'
+                    }
+                ]
+            },
+            {
+                levelNumber: 3,
+                levelName: '3. Desna',
+                levelNameFull: '3. Desna vertikala',
+                levelSubtitle: 'Uvođenje desne vertikale (C, E, I, M)',
+                tasks: [
+                    {
+                        id: 'L3_C',
+                        type: 'single',
+                        letter: 'C',
+                        word: 'CVIJET',
+                        emoji: '🌻',
+                        targetDots: [1, 4],
+                        speech: 'Uvodimo desnu vertikalu! Za slovo C spoji crvenu točkicu (1) lijevo i zelenu točkicu (4) desno.'
+                    },
+                    {
+                        id: 'L3_E',
+                        type: 'single',
+                        letter: 'E',
+                        word: 'ESKIM',
+                        emoji: '🧊',
+                        targetDots: [1, 5],
+                        speech: 'Za slovo E postavi crvenu točkicu (1) gore lijevo i narančastu točkicu (5) u sredinu desno!'
+                    },
+                    {
+                        id: 'L3_I',
+                        type: 'single',
+                        letter: 'I',
+                        word: 'IGRA',
+                        emoji: '🧸',
+                        targetDots: [2, 4],
+                        speech: 'Slovo I koristi plavu točkicu (2) u lijevom stupcu i zelenu točkicu (4) na vrhu desnog stupca!'
+                    },
+                    {
+                        id: 'L3_M',
+                        type: 'single',
+                        letter: 'M',
+                        word: 'MAČKA',
+                        emoji: '🐱',
+                        targetDots: [1, 3, 4],
+                        speech: 'Slovo M je kao slovo K uz dodatak desne vertikale: stavi crvenu (1), žutu (3) i zelenu (4) točkicu!'
+                    }
+                ]
+            }
+        ];
+
+        let currentGroupIndex = 0;
+        let currentTaskIndex = 0;
+        let currentWordLetterIndex = 0;
+
+        let activeDots = { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false };
+        let completedTaskIds = new Set();
+        let isExecuting = false;
+        let soundEnabled = true;
+        let draggedPinSource = null;
+
+        // Touch drag state for smartphones and tablets
+        let touchDragState = null;
+
+        // Haptic feedback helper for Android devices
+        function triggerHaptic(pattern = 15) {
+            if (navigator.vibrate) {
+                try {
+                    navigator.vibrate(pattern);
+                } catch (e) {}
+            }
+        }
+
+        function getTotalTasksCount() {
+            return CURRICULUM.reduce((acc, g) => acc + g.tasks.length, 0);
+        }
+
+        function getCurrentTask() {
+            return CURRICULUM[currentGroupIndex].tasks[currentTaskIndex];
+        }
+
+        function getCurrentTargetDots() {
+            const task = getCurrentTask();
+            if (task.type === 'word') {
+                const currentLetter = task.letters[currentWordLetterIndex];
+                return BRAILLE_LETTERS[currentLetter] || [1];
+            }
+            return task.targetDots;
+        }
+
+        function getCurrentTargetLetter() {
+            const task = getCurrentTask();
+            if (task.type === 'word') {
+                return task.letters[currentWordLetterIndex];
+            }
+            return task.letter;
+        }
+
+        // Web Audio API Synthesizer with Mobile Auto-Unlock
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        // Unlock Web Audio on first touch anywhere on smartphone screen
+        function unlockMobileAudio() {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                if (ctx && ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+            } catch (e) {}
+        }
+        document.addEventListener('touchstart', unlockMobileAudio, { passive: true, once: true });
+        document.addEventListener('click', unlockMobileAudio, { passive: true, once: true });
+
+        function playTone(freq, type = 'sine', duration = 0.16, delay = 0, volume = 0.25) {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+
+                gain.gain.setValueAtTime(volume, ctx.currentTime + delay);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + duration);
+            } catch (e) {}
+        }
+
+        function playSoundEffect(effect, dotNum = 1) {
+            if (!soundEnabled) return;
+            switch (effect) {
+                case 'pickup':
+                    playTone(DOT_FREQUENCIES[dotNum] || 440, 'sine', 0.1, 0, 0.2);
+                    break;
+                case 'drop':
+                    playTone(DOT_FREQUENCIES[dotNum] || 600, 'triangle', 0.18, 0, 0.28);
+                    break;
+                case 'remove':
+                    playTone(320, 'sine', 0.12, 0, 0.2);
+                    break;
+                case 'scan':
+                    playTone(DOT_FREQUENCIES[dotNum] || 523.25, 'triangle', 0.22, 0, 0.3);
+                    break;
+                case 'letter_ok':
+                    playTone(587.33, 'triangle', 0.14, 0, 0.28);
+                    playTone(880.00, 'triangle', 0.22, 0.12, 0.3);
+                    break;
+                case 'win':
+                    playTone(523.25, 'triangle', 0.15, 0, 0.3);
+                    playTone(659.25, 'triangle', 0.15, 0.12, 0.3);
+                    playTone(783.99, 'triangle', 0.15, 0.24, 0.3);
+                    playTone(1046.50, 'triangle', 0.4, 0.36, 0.35);
+                    break;
+                case 'error':
+                    playTone(220, 'sawtooth', 0.2, 0, 0.2);
+                    playTone(170, 'sawtooth', 0.3, 0.18, 0.2);
+                    break;
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('sound-toggle');
+            btn.innerHTML = soundEnabled ? '🔊' : '🔇';
+            btn.className = soundEnabled
+                ? 'btn-3d bg-purple-500 hover:bg-purple-600 text-white w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl border-2 border-purple-700'
+                : 'btn-3d bg-slate-400 hover:bg-slate-500 text-white w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl border-2 border-slate-600';
+            if (soundEnabled) playSoundEffect('drop', 1);
+        }
+
+        function toggleParentModal() {
+            const modal = document.getElementById('parent-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        function selectGroupAndTask(groupIdx, taskIdx = 0) {
+            if (isExecuting) return;
+            currentGroupIndex = groupIdx;
+            currentTaskIndex = taskIdx;
+            currentWordLetterIndex = 0;
+            loadCurrentTaskState();
+        }
+
+        function loadCurrentTaskState() {
+            const group = CURRICULUM[currentGroupIndex];
+            const task = getCurrentTask();
+            const targetLetter = getCurrentTargetLetter();
+            const targetDots = getCurrentTargetDots();
+
+            activeDots = { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false };
+
+            document.getElementById('level-badge').textContent = `Razina ${group.levelNumber}`;
+            document.getElementById('level-title').textContent = group.levelSubtitle;
+
+            if (task.type === 'word') {
+                const dotNames = targetDots.map(d => `${DOT_COLORS[d].name} (${d})`).join(' + ');
+                document.getElementById('mascot-speech').textContent =
+                    `Riječ "${task.word}" (${currentWordLetterIndex + 1}/${task.letters.length}): Složi slovo ${targetLetter} — postavi ${dotNames} točkicu!`;
+            } else {
+                document.getElementById('mascot-speech').textContent = task.speech;
+            }
+
+            document.getElementById('target-letter').textContent = targetLetter;
+            document.getElementById('target-emoji').textContent = task.emoji;
+            document.getElementById('target-word').textContent = task.word;
+            document.getElementById('target-dots-label').textContent =
+                targetDots.length === 1
+                    ? `Točkica: ${targetDots[0]}`
+                    : `Točkice: ${targetDots.join(', ')}`;
+
+            setLightbulbState(false);
+            renderLevelButtons();
+            renderTaskPills();
+            renderWordSpellingBar();
+            renderMiniGuide();
+            renderWorkspace();
+        }
+
+        function renderLevelButtons() {
+            const container = document.getElementById('level-buttons');
+            container.innerHTML = '';
+
+            CURRICULUM.forEach((group, gIdx) => {
+                const isCurrent = gIdx === currentGroupIndex;
+                const allGroupDone = group.tasks.every(t => completedTaskIds.has(t.id));
+                const btn = document.createElement('button');
+                btn.onclick = () => {
+                    playSoundEffect('pickup', 1);
+                    selectGroupAndTask(gIdx, 0);
+                };
+                btn.className = isCurrent
+                    ? 'px-2 sm:px-3 h-9 sm:h-11 rounded-lg sm:rounded-xl font-extrabold text-[11px] sm:text-sm bg-amber-400 text-slate-900 border-2 border-amber-600 shadow-sm transition-all flex items-center justify-center gap-1'
+                    : 'px-2 sm:px-3 h-9 sm:h-11 rounded-lg sm:rounded-xl font-bold text-[11px] sm:text-sm bg-white text-slate-600 hover:bg-sky-50 border-2 border-sky-200 transition-all flex items-center justify-center gap-1';
+                btn.innerHTML = `<span class="sm:hidden">${group.levelName}</span><span class="hidden sm:inline">${group.levelNameFull}</span>${allGroupDone ? '<span>⭐</span>' : ''}`;
+                container.appendChild(btn);
+            });
+
+            document.getElementById('stars-counter').textContent = `${completedTaskIds.size} / ${getTotalTasksCount()}`;
+        }
+
+        function renderTaskPills() {
+            const container = document.getElementById('task-pills');
+            container.innerHTML = '';
+            const group = CURRICULUM[currentGroupIndex];
+
+            group.tasks.forEach((t, tIdx) => {
+                const isCurrent = tIdx === currentTaskIndex;
+                const isDone = completedTaskIds.has(t.id);
+                const pill = document.createElement('button');
+                pill.onclick = () => {
+                    playSoundEffect('pickup', 2);
+                    selectGroupAndTask(currentGroupIndex, tIdx);
+                };
+                const shortLabel = t.type === 'word' ? t.word : `Slovo ${t.letter}`;
+                const fullLabel = t.type === 'word' ? `Riječ: ${t.word}` : `Slovo ${t.letter}`;
+                pill.className = isCurrent
+                    ? 'px-2 sm:px-3 py-1 rounded-xl font-extrabold text-[11px] sm:text-sm bg-sky-600 text-white border-2 border-sky-800 shadow-sm flex items-center justify-center gap-1'
+                    : 'px-2 sm:px-2.5 py-1 rounded-xl font-bold text-[11px] sm:text-sm bg-sky-50 text-slate-700 hover:bg-sky-100 border border-sky-200 flex items-center justify-center gap-1';
+                pill.innerHTML = `<span class="sm:hidden">${shortLabel}</span><span class="hidden sm:inline">${fullLabel}</span>${isDone ? '<span class="text-[10px] sm:text-xs">⭐</span>' : ''}`;
+                container.appendChild(pill);
+            });
+        }
+
+        function renderWordSpellingBar() {
+            const bar = document.getElementById('word-spelling-bar');
+            const task = getCurrentTask();
+
+            if (task.type !== 'word') {
+                bar.classList.add('hidden');
+                bar.classList.remove('flex');
+                return;
+            }
+
+            bar.classList.remove('hidden');
+            bar.classList.add('flex');
+            bar.innerHTML = '';
+
+            task.letters.forEach((ltr, idx) => {
+                const isDone = idx < currentWordLetterIndex;
+                const isCurrent = idx === currentWordLetterIndex;
+                const slot = document.createElement('div');
+                slot.className = `w-9 h-9 sm:w-11 sm:h-11 rounded-xl font-extrabold text-base sm:text-lg flex items-center justify-center border-2 transition-all ${
+                    isDone
+                        ? 'bg-emerald-500 border-emerald-200 text-white shadow-md'
+                        : isCurrent
+                            ? 'bg-amber-400 border-white text-slate-900 scale-110 shadow-lg'
+                            : 'bg-slate-900 border-slate-600 text-slate-500'
+                }`;
+                slot.textContent = isDone ? `${ltr}✓` : ltr;
+                bar.appendChild(slot);
+            });
+        }
+
+        function renderMiniGuide() {
+            const guideGrid = document.getElementById('mini-guide-grid');
+            guideGrid.innerHTML = '';
+            const targetSet = new Set(getCurrentTargetDots());
+
+            GRID_DISPLAY_ORDER.forEach(dotNum => {
+                const isTarget = targetSet.has(dotNum);
+                const colorCfg = DOT_COLORS[dotNum];
+                const dotEl = document.createElement('div');
+                dotEl.className = `w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[11px] sm:text-xs font-extrabold border-2 transition-all ${
+                    isTarget
+                        ? `${colorCfg.miniActive} shadow-md scale-110`
+                        : 'bg-slate-800 border-slate-700 text-slate-500'
+                }`;
+                dotEl.textContent = dotNum;
+                guideGrid.appendChild(dotEl);
+            });
+        }
+
+        function renderWorkspace() {
+            renderBrailleCell();
+            renderPinToolbox();
+            updatePlacedCountBadge();
+        }
+
+        function updatePlacedCountBadge() {
+            const placedCount = Object.values(activeDots).filter(Boolean).length;
+            const targetCount = getCurrentTargetDots().length;
+            const badge = document.getElementById('placed-count-badge');
+            badge.textContent = `${placedCount} od ${targetCount}`;
+        }
+
+        function renderBrailleCell() {
+            const cellGrid = document.getElementById('braille-cell-grid');
+            cellGrid.innerHTML = '';
+            const targetSet = new Set(getCurrentTargetDots());
+
+            GRID_DISPLAY_ORDER.forEach(dotNum => {
+                const hasPin = activeDots[dotNum];
+                const isTargetHint = targetSet.has(dotNum);
+                const colorCfg = DOT_COLORS[dotNum];
+
+                const socketWrapper = document.createElement('div');
+                socketWrapper.className = 'flex flex-col items-center gap-1';
+
+                const socketEl = document.createElement('div');
+                socketEl.id = `braille-dot-${dotNum}`;
+                socketEl.dataset.dotNumber = dotNum;
+                socketEl.className = `braille-socket relative w-[68px] h-[68px] sm:w-24 sm:h-24 rounded-full border-4 flex items-center justify-center transition-all cursor-pointer ${
+                    hasPin
+                        ? 'border-white bg-slate-700'
+                        : isTargetHint
+                            ? `border-dashed ${colorCfg.socketHint} bg-slate-900/90 hover:scale-105`
+                            : 'border-slate-600 bg-slate-900 hover:border-slate-400'
+                }`;
+
+                const numBadge = document.createElement('span');
+                numBadge.className = hasPin
+                    ? `absolute -top-1 -left-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full ${colorCfg.badgeBg} text-[11px] sm:text-xs font-extrabold flex items-center justify-center border-2 z-20 pointer-events-none shadow`
+                    : `text-xl sm:text-3xl font-extrabold pointer-events-none ${isTargetHint ? '' : 'text-slate-600'}`;
+                numBadge.textContent = dotNum;
+                socketEl.appendChild(numBadge);
+
+                // HTML5 Dragover / Drop Listeners (Desktop)
+                socketEl.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    if (!isExecuting) socketEl.classList.add('slot-highlight');
+                });
+                socketEl.addEventListener('dragleave', () => {
+                    socketEl.classList.remove('slot-highlight');
+                });
+                socketEl.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    socketEl.classList.remove('slot-highlight');
+                    handleDropOnBrailleDot(dotNum);
+                });
+
+                // Click/Tap directly on socket to toggle its colored dot
+                socketEl.addEventListener('click', () => {
+                    if (isExecuting) return;
+                    if (activeDots[dotNum]) {
+                        activeDots[dotNum] = false;
+                        triggerHaptic(10);
+                        playSoundEffect('remove');
+                    } else {
+                        activeDots[dotNum] = true;
+                        triggerHaptic(20);
+                        playSoundEffect('drop', dotNum);
+                    }
+                    setLightbulbState(false);
+                    renderWorkspace();
+                });
+
+                if (hasPin) {
+                    const pinEl = createColoredDotElement('cell', dotNum);
+                    socketEl.appendChild(pinEl);
+                }
+
+                socketWrapper.appendChild(socketEl);
+                cellGrid.appendChild(socketWrapper);
+            });
+        }
+
+        function renderPinToolbox() {
+            const toolboxContainer = document.getElementById('toolbox-pins');
+            toolboxContainer.innerHTML = '';
+
+            // Allow dragging a placed dot from the Braille cell back into the toolbox (Desktop)
+            toolboxContainer.ondragover = (e) => e.preventDefault();
+            toolboxContainer.ondrop = (e) => {
+                e.preventDefault();
+                if (draggedPinSource && draggedPinSource.from === 'cell' && draggedPinSource.dotNumber) {
+                    activeDots[draggedPinSource.dotNumber] = false;
+                    draggedPinSource = null;
+                    playSoundEffect('remove');
+                    setLightbulbState(false);
+                    renderWorkspace();
+                }
+            };
+
+            const availableDots = GRID_DISPLAY_ORDER.filter(d => !activeDots[d]);
+
+            if (availableDots.length === 0) {
+                const msg = document.createElement('p');
+                msg.className = 'text-slate-400 font-bold text-xs sm:text-sm text-center py-3';
+                msg.textContent = 'Sve točkice su na ploči! Pritisni zeleni gumb PROVJERI DODIROM! ✋';
+                toolboxContainer.appendChild(msg);
+                return;
+            }
+
+            availableDots.forEach(dotNum => {
+                const pinEl = createColoredDotElement('toolbox', dotNum);
+                toolboxContainer.appendChild(pinEl);
+            });
+        }
+
+        function createColoredDotElement(sourceType, dotNumber) {
+            const colorCfg = DOT_COLORS[dotNumber];
+            const pin = document.createElement('div');
+            pin.draggable = !isExecuting;
+            pin.style.boxShadow = colorCfg.shadow;
+            pin.title = `Točkica ${dotNumber} (${colorCfg.label})`;
+
+            const sizeClasses = sourceType === 'cell'
+                ? 'w-14 h-14 sm:w-20 sm:h-20'
+                : 'w-14 h-14 sm:w-16 sm:h-16';
+
+            pin.className = `braille-pin ${sizeClasses} rounded-full ${colorCfg.pinBg} border-4 flex flex-col items-center justify-center select-none relative`;
+
+            const innerDome = document.createElement('div');
+            innerDome.className = `w-7 h-7 sm:w-9 sm:h-9 rounded-full ${colorCfg.domeBg} border border-white/70 pointer-events-none flex items-center justify-center text-sm sm:text-base font-extrabold`;
+            innerDome.textContent = dotNumber;
+            pin.appendChild(innerDome);
+
+            // Desktop HTML5 Drag events
+            pin.addEventListener('dragstart', (e) => {
+                if (isExecuting) {
+                    e.preventDefault();
+                    return;
+                }
+                e.stopPropagation();
+                draggedPinSource = { from: sourceType, dotNumber: dotNumber };
+                playSoundEffect('pickup', dotNumber);
+                setTimeout(() => pin.classList.add('opacity-50'), 0);
+            });
+
+            pin.addEventListener('dragend', () => {
+                pin.classList.remove('opacity-50');
+                draggedPinSource = null;
+            });
+
+            // Mobile & Tablet Touch Dragging Support
+            pin.addEventListener('touchstart', (e) => {
+                if (isExecuting || e.touches.length > 1) return;
+                const touch = e.touches[0];
+                touchDragState = {
+                    sourceType,
+                    dotNumber,
+                    startX: touch.clientX,
+                    startY: touch.clientY,
+                    isDragging: false,
+                    ghostEl: null,
+                    originEl: pin,
+                    lastHighlightedSocket: null
+                };
+            }, { passive: true });
+
+            pin.addEventListener('touchmove', (e) => {
+                if (!touchDragState || isExecuting) return;
+                const touch = e.touches[0];
+                const dx = touch.clientX - touchDragState.startX;
+                const dy = touch.clientY - touchDragState.startY;
+
+                // Start visual drag once finger moves more than 8px
+                if (!touchDragState.isDragging && Math.hypot(dx, dy) > 8) {
+                    touchDragState.isDragging = true;
+                    draggedPinSource = { from: touchDragState.sourceType, dotNumber: touchDragState.dotNumber };
+                    triggerHaptic(15);
+                    playSoundEffect('pickup', touchDragState.dotNumber);
+
+                    // Create floating ghost dot under child's finger
+                    const ghost = pin.cloneNode(true);
+                    ghost.classList.add('touch-drag-ghost');
+                    ghost.style.width = '68px';
+                    ghost.style.height = '68px';
+                    document.body.appendChild(ghost);
+                    touchDragState.ghostEl = ghost;
+                    touchDragState.originEl.classList.add('opacity-40');
+                }
+
+                if (touchDragState.isDragging) {
+                    e.preventDefault(); // Prevent page scrolling while dragging a Braille dot!
+                    touchDragState.ghostEl.style.left = `${touch.clientX}px`;
+                    touchDragState.ghostEl.style.top = `${touch.clientY}px`;
+
+                    // Highlight socket underneath finger
+                    const elUnderFinger = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const socketEl = elUnderFinger ? elUnderFinger.closest('.braille-socket') : null;
+
+                    if (touchDragState.lastHighlightedSocket && touchDragState.lastHighlightedSocket !== socketEl) {
+                        touchDragState.lastHighlightedSocket.classList.remove('slot-highlight');
+                    }
+                    if (socketEl) {
+                        socketEl.classList.add('slot-highlight');
+                        touchDragState.lastHighlightedSocket = socketEl;
+                    }
+                }
+            }, { passive: false });
+
+            pin.addEventListener('touchend', (e) => {
+                if (!touchDragState) return;
+                const state = touchDragState;
+                touchDragState = null;
+
+                if (state.lastHighlightedSocket) {
+                    state.lastHighlightedSocket.classList.remove('slot-highlight');
+                }
+                if (state.ghostEl) {
+                    state.ghostEl.remove();
+                }
+                if (state.originEl) {
+                    state.originEl.classList.remove('opacity-40');
+                }
+
+                if (state.isDragging) {
+                    e.preventDefault();
+                    const touch = e.changedTouches[0];
+                    const elUnderFinger = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const socketEl = elUnderFinger ? elUnderFinger.closest('.braille-socket') : null;
+                    const toolboxEl = elUnderFinger ? elUnderFinger.closest('#toolbox-pins') : null;
+
+                    if (socketEl && socketEl.dataset.dotNumber) {
+                        handleDropOnBrailleDot( parseInt(socketEl.dataset.dotNumber, 10) );
+                    } else if (toolboxEl && state.sourceType === 'cell') {
+                        activeDots[state.dotNumber] = false;
+                        draggedPinSource = null;
+                        triggerHaptic(15);
+                        playSoundEffect('remove');
+                        setLightbulbState(false);
+                        renderWorkspace();
+                    } else {
+                        draggedPinSource = null;
+                    }
+                }
+            });
+
+            pin.addEventListener('touchcancel', () => {
+                if (!touchDragState) return;
+                if (touchDragState.lastHighlightedSocket) {
+                    touchDragState.lastHighlightedSocket.classList.remove('slot-highlight');
+                }
+                if (touchDragState.ghostEl) touchDragState.ghostEl.remove();
+                if (touchDragState.originEl) touchDragState.originEl.classList.remove('opacity-40');
+                touchDragState = null;
+                draggedPinSource = null;
+            });
+
+            // Tapping a colored dot in the toolbox places it directly into its matching number socket (1..6)
+            if (sourceType === 'toolbox') {
+                pin.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (isExecuting) return;
+                    activeDots[dotNumber] = true;
+                    triggerHaptic(20);
+                    playSoundEffect('drop', dotNumber);
+                    setLightbulbState(false);
+                    renderWorkspace();
+                });
+            }
+
+            return pin;
+        }
+
+        function handleDropOnBrailleDot(targetDotNum) {
+            if (!draggedPinSource || isExecuting) return;
+
+            const draggedDotNum = draggedPinSource.dotNumber;
+
+            if (draggedDotNum !== targetDotNum) {
+                triggerHaptic([30, 50, 30]);
+                playSoundEffect('error');
+                const colorCfg = DOT_COLORS[draggedDotNum];
+                document.getElementById('mascot-speech').textContent =
+                    `Ova točkica je ${colorCfg.label.toLowerCase()} (broj ${draggedDotNum})! Smjestili smo je u njezinu rupu broj ${draggedDotNum}.`;
+                activeDots[draggedDotNum] = true;
+                draggedPinSource = null;
+                setLightbulbState(false);
+                renderWorkspace();
+                return;
+            }
+
+            activeDots[targetDotNum] = true;
+            draggedPinSource = null;
+            triggerHaptic(25);
+            playSoundEffect('drop', targetDotNum);
+            setLightbulbState(false);
+            renderWorkspace();
+        }
+
+        function resetLevel() {
+            if (isExecuting) return;
+            triggerHaptic(15);
+            playSoundEffect('remove');
+            activeDots = { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false };
+            setLightbulbState(false);
+            renderWorkspace();
+        }
+
+        async function checkBrailleCell() {
+            if (isExecuting) return;
+
+            const task = getCurrentTask();
+            const targetLetter = getCurrentTargetLetter();
+            const targetDots = getCurrentTargetDots();
+            const speechEl = document.getElementById('mascot-speech');
+            const runBtn = document.getElementById('run-btn');
+            const boardPanel = document.getElementById('braille-board-panel');
+
+            const placedDots = [1, 2, 3, 4, 5, 6].filter(d => activeDots[d]);
+
+            if (placedDots.length === 0) {
+                triggerHaptic([40, 60, 40]);
+                playSoundEffect('error');
+                speechEl.textContent = 'Ćelija je prazna! Povuci ili dodirni barem jednu obojenu točkicu. 🎨';
+                boardPanel.classList.add('shake-error');
+                setTimeout(() => boardPanel.classList.remove('shake-error'), 500);
+                return;
+            }
+
+            isExecuting = true;
+            setLightbulbState(false);
+            runBtn.classList.add('opacity-60', 'pointer-events-none');
+            speechEl.textContent = 'Čitam obojene točkice dodirom od 1 do 6... ✋✨';
+
+            const targetSet = new Set(targetDots);
+            let errorFound = false;
+
+            for (let dotNum = 1; dotNum <= 6; dotNum++) {
+                const socketEl = document.getElementById(`braille-dot-${dotNum}`);
+                const hasPin = activeDots[dotNum];
+                const shouldHavePin = targetSet.has(dotNum);
+                const colorCfg = DOT_COLORS[dotNum];
+
+                if (hasPin || shouldHavePin) {
+                    socketEl.classList.add('scanning-dot');
+                    triggerHaptic(15);
+                    playSoundEffect('scan', dotNum);
+                    await new Promise(r => setTimeout(r, 520));
+                    socketEl.classList.remove('scanning-dot');
+
+                    if (hasPin && !shouldHavePin) {
+                        errorFound = true;
+                        triggerHaptic([50, 70, 50]);
+                        playSoundEffect('error');
+                        socketEl.classList.add('shake-error', 'border-rose-500');
+                        speechEl.textContent = `Ups! U točki ${dotNum} (${colorCfg.label}) ne treba biti točkica za slovo ${targetLetter}. Dodirni točkicu ${dotNum} da je makneš!`;
+                        setTimeout(() => socketEl.classList.remove('shake-error', 'border-rose-500'), 1200);
+                        break;
+                    }
+
+                    if (!hasPin && shouldHavePin) {
+                        errorFound = true;
+                        triggerHaptic([50, 70, 50]);
+                        playSoundEffect('error');
+                        socketEl.classList.add('shake-error', 'border-rose-500');
+                        speechEl.textContent = `Nedostaje nam ${colorCfg.name} točkica u rupi broj ${dotNum} za slovo ${targetLetter}!`;
+                        setTimeout(() => socketEl.classList.remove('shake-error', 'border-rose-500'), 1200);
+                        break;
+                    }
+                }
+            }
+
+            if (!errorFound) {
+                setLightbulbState(true);
+                triggerHaptic([30, 50, 80]);
+
+                if (task.type === 'word' && currentWordLetterIndex < task.letters.length - 1) {
+                    playSoundEffect('letter_ok');
+                    speechEl.textContent = `Točno! Žarulja svijetli za slovo ${targetLetter}! 💡 Idemo sada na sljedeće slovo u riječi ${task.word}...`;
+                    await new Promise(r => setTimeout(r, 1100));
+                    currentWordLetterIndex++;
+                    isExecuting = false;
+                    runBtn.classList.remove('opacity-60', 'pointer-events-none');
+                    loadCurrentTaskState();
+                    return;
+                }
+
+                completedTaskIds.add(task.id);
+                renderLevelButtons();
+                renderTaskPills();
+                if (task.type === 'word') {
+                    currentWordLetterIndex = task.letters.length;
+                    renderWordSpellingBar();
+                }
+
+                playSoundEffect('win');
+                speechEl.textContent = task.type === 'word'
+                    ? `BRAVO! Žarulja svijetli! Uspješno si sastavio/la cijelu riječ ${task.word} ${task.emoji}! 💡🌟`
+                    : `BRAVO! Žarulja svijetli! To je Brailleovo slovo ${targetLetter} kao ${task.word} ${task.emoji}! 💡🌟`;
+
+                setTimeout(() => {
+                    showVictoryModal();
+                }, 900);
+            }
+
+            isExecuting = false;
+            runBtn.classList.remove('opacity-60', 'pointer-events-none');
+        }
+
+        function setLightbulbState(isLit) {
+            const stageContainer = document.getElementById('stage-container');
+            const letterCard = document.getElementById('letter-card');
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+
+            const bulbContainer = document.getElementById('lightbulb-container');
+            const bulbSvg = document.getElementById('lightbulb-svg');
+            const bulbGlass = document.getElementById('bulb-glass');
+            const bulbFilament = document.getElementById('bulb-filament');
+            const bulbRays = document.getElementById('bulb-rays');
+            const bulbLabel = document.getElementById('bulb-label');
+
+            const targetLetter = getCurrentTargetLetter();
+            const task = getCurrentTask();
+
+            if (isLit) {
+                stageContainer.classList.remove('bg-slate-900', 'border-slate-700');
+                stageContainer.classList.add('bg-emerald-950', 'border-amber-400');
+                letterCard.classList.add('letter-glow', 'border-amber-400');
+                statusDot.className = 'w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-400 inline-block animate-ping shrink-0';
+                statusText.textContent = `Točno: ${targetLetter} (${task.word})! 🌟`;
+
+                bulbContainer.className = 'bg-amber-400/20 border-2 border-amber-300 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl flex items-center gap-1.5 sm:gap-2 transition-all duration-500 shadow-lg shrink-0';
+                bulbSvg.classList.add('bulb-lit');
+                bulbGlass.setAttribute('fill', '#facc15');
+                bulbGlass.setAttribute('stroke', '#fef08a');
+                bulbFilament.setAttribute('stroke', '#ffffff');
+                bulbRays.classList.remove('opacity-0');
+                bulbRays.classList.add('opacity-100');
+                bulbLabel.textContent = 'Svijetli! 💡';
+                bulbLabel.className = 'text-[10px] sm:text-xs font-extrabold text-amber-300 uppercase tracking-wide';
+            } else {
+                stageContainer.classList.add('bg-slate-900', 'border-slate-700');
+                stageContainer.classList.remove('bg-emerald-950', 'border-amber-400');
+                letterCard.classList.remove('letter-glow', 'border-amber-400');
+                statusDot.className = 'w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-400 inline-block shrink-0';
+                statusText.textContent = task.type === 'word'
+                    ? `Riječ ${task.word}: složi slovo ${targetLetter}`
+                    : `Zadatak: Složi slovo ${targetLetter}`;
+
+                bulbContainer.className = 'bg-slate-800/90 border-2 border-slate-600 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-2xl flex items-center gap-1.5 sm:gap-2 transition-all duration-500 shrink-0';
+                bulbSvg.classList.remove('bulb-lit');
+                bulbGlass.setAttribute('fill', '#334155');
+                bulbGlass.setAttribute('stroke', '#64748b');
+                bulbFilament.setAttribute('stroke', '#64748b');
+                bulbRays.classList.add('opacity-0');
+                bulbRays.classList.remove('opacity-100');
+                bulbLabel.textContent = 'Ugašena';
+                bulbLabel.className = 'text-[10px] sm:text-xs font-extrabold text-slate-400 uppercase tracking-wide';
+            }
+        }
+
+        function showVictoryModal() {
+            const modal = document.getElementById('victory-modal');
+            const nextBtn = document.getElementById('next-level-btn');
+            const victoryMsg = document.getElementById('victory-message');
+            const victoryEmoji = document.getElementById('victory-emoji');
+            const task = getCurrentTask();
+
+            victoryEmoji.textContent = `💡 ${task.emoji} 🌟`;
+
+            if (task.type === 'word') {
+                victoryMsg.textContent = `Žarulja svijetli! Točno si sastavio/la riječ ${task.word} od slova lijeve vertikale!`;
+            } else {
+                victoryMsg.textContent = `Žarulja svijetli! Naučio/la si Brailleovo slovo ${task.letter} (${task.word})!`;
+            }
+
+            nextBtn.innerHTML = '<span>Sljedeći zadatak</span> <span>➡️</span>';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeVictoryModal() {
+            const modal = document.getElementById('victory-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            currentWordLetterIndex = 0;
+        }
+
+        function goToNextTask() {
+            closeVictoryModal();
+            const group = CURRICULUM[currentGroupIndex];
+            if (currentTaskIndex < group.tasks.length - 1) {
+                selectGroupAndTask(currentGroupIndex, currentTaskIndex + 1);
+            } else {
+                const nextGroup = (currentGroupIndex + 1) % CURRICULUM.length;
+                selectGroupAndTask(nextGroup, 0);
+            }
+        }
+
+        let isKioskMode = false;
+
+        function updateKioskUI(active) {
+            isKioskMode = active;
+            const exitBtn = document.getElementById('kiosk-exit-x');
+            const topBtn = document.getElementById('kiosk-top-btn');
+
+            if (active) {
+                document.body.classList.add('kiosk-active');
+                exitBtn.classList.remove('hidden');
+                exitBtn.classList.add('flex');
+                if (topBtn) topBtn.classList.add('hidden');
+            } else {
+                document.body.classList.remove('kiosk-active');
+                exitBtn.classList.add('hidden');
+                exitBtn.classList.remove('flex');
+                if (topBtn) topBtn.classList.remove('hidden');
+            }
+        }
+
+        function enterKioskMode() {
+            playSoundEffect('pickup', 1);
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(() => {
+                    updateKioskUI(true);
+                });
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else {
+                updateKioskUI(true);
+            }
+            updateKioskUI(true);
+        }
+
+        function exitKioskMode() {
+            playSoundEffect('remove');
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+            updateKioskUI(false);
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                updateKioskUI(false);
+            }
+        });
+
+        document.addEventListener('webkitfullscreenchange', () => {
+            if (!document.webkitFullscreenElement) {
+                updateKioskUI(false);
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && isKioskMode) {
+                exitKioskMode();
+            }
+        });
+
+        window.onload = function () {
+            selectGroupAndTask(0, 0);
+        };
+    </script>
+</body>
+</html>
